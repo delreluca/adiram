@@ -13,14 +13,15 @@ module ULC
 where
 
 import Data.String
-import Text.Parsec as P
+import qualified Text.Parsec as P
+import Text.Parsec((<|>), between, char, many, alphaNum, letter, spaces, sepBy)
 
 -- | A scoped expression that contains bound variables.
 newtype ExprScope a = ExprScope (Expr a)
     deriving (Eq, Show)
 
 -- | Represents an expression in the untyped lambda calculucs, where de Brujin indices are used for bound variables.
--- Note that 'Bound' is not exported from this module, use 'abstract' to bind variables.
+-- Note that 'Bound' is not exported from this module, use 'mkLam' to create lambda abstractions binding variables.
 data Expr a = Free a -- ^ A free variable
             | Bound !Int -- ^ A bound variable containing its de Brujin index
             | App (Expr a) (Expr a) -- ^ An application of a right to a left expression
@@ -63,9 +64,6 @@ freeNameWithApo n ns
     | n `notElem` ns = n : ns
     | otherwise      = freeNameWithApo (MkApoString (apoToString n ++ "\'")) ns
 
-test :: a -> a
-test y = y
-
 -- | Prints a lambda expression; not pretty
 showExpr :: VarName a => Expr a -> String
 showExpr = go []
@@ -75,25 +73,25 @@ showExpr = go []
     go ns (App l r) = "(" ++ go ns l ++ ") (" ++ go ns r ++ ")"
     go ns (Lam n (ExprScope inner)) =
         "\\" ++ varToString (head ns') ++ "." ++ go ns' inner
-        where ns' = freeName n ns
+        where ns' = freeName n $ ns
 
 var :: VarName a => P.Parsec String () a
 var = do
-    firstLetter <- P.letter
-    followingLetters <- many P.alphaNum
+    firstLetter <- letter
+    followingLetters <- many alphaNum
     return $ fromString (firstLetter : followingLetters)
 
 lambda :: VarName a => P.Parsec String () (Expr a)
 lambda = do
-    P.char '\\'
-    P.spaces
+    char '\\'
+    spaces
     bound <- var
-    P.spaces
-    P.char '.'
+    spaces
+    char '.'
     mkLam bound <$> region
 
 inRegion :: VarName a => P.Parsec String () (Expr a)
 inRegion = between (char '(') (char ')') region <|> Free <$> var <|> lambda
 
 region :: VarName a => P.Parsec String () (Expr a)
-region = foldl1 App <$> P.sepBy inRegion P.spaces
+region = foldl1 App <$> sepBy inRegion spaces
