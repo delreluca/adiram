@@ -17,11 +17,7 @@ tellBack :: String -> IO ()
 tellBack s = putStrLn $ either (const "Error parsing. Use :q to quit.") showExpr (P.parse (region :: P.Parsec String () (Expr ApoString)) "$repl" s)
 
 repl :: IO ()
-repl = do
-  maybeInput <- readUserInput
-  maybe (putStrLn "Goodbye") (\s -> tellBack s >> repl) maybeInput
+repl = readUserInput >>= maybe (putStrLn "Goodbye") (\s -> tellBack s >> repl)
 
 main :: IO ()
-main = do
-    putStrLn "Welcome to adiram"
-    repl
+main = putStrLn "Welcome to adiram" >> repl
