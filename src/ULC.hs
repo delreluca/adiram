@@ -9,12 +9,21 @@ module ULC
     , mkLam
     , showExpr
     , region
+    , reduce
     )
 where
 
-import Data.String
-import qualified Text.Parsec as P
-import Text.Parsec((<|>), between, char, many, alphaNum, letter, spaces, sepBy)
+import           Data.String
+import qualified Text.Parsec                   as P
+import           Text.Parsec                    ( (<|>)
+                                                , between
+                                                , char
+                                                , many
+                                                , alphaNum
+                                                , letter
+                                                , spaces
+                                                , sepBy
+                                                )
 
 -- | A scoped expression that contains bound variables.
 newtype ExprScope a = ExprScope (Expr a)
@@ -72,12 +81,12 @@ showExpr = go []
     go ns (Bound i) = varToString $ ns !! i
     go ns (App l r) = "(" ++ go ns l ++ ") (" ++ go ns r ++ ")"
     go ns (Lam n (ExprScope inner)) =
-        "\\" ++ varToString (head ns') ++ "." ++ go ns' inner
-        where ns' = freeName n $ ns
+        "λ" ++ varToString (head ns') ++ "." ++ go ns' inner
+        where ns' = freeName n ns
 
 var :: VarName a => P.Parsec String () a
 var = do
-    firstLetter <- letter
+    firstLetter      <- letter
     followingLetters <- many alphaNum
     return $ fromString (firstLetter : followingLetters)
 
