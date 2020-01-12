@@ -48,3 +48,4 @@ tests:
     dependencies:
     - adiram
     - tasty >= 1.2
+    - tasty-hunit
