@@ -14,7 +14,7 @@ readUserInput = do
     _ -> Just input
 
 tellBack :: String -> IO ()
-tellBack s = putStrLn $ either badCase niceCase (P.parse (region :: P.Parsec String () (Expr ApoString)) "$repl" s)
+tellBack s = putStrLn $ either badCase niceCase (P.parse parser "$repl" s)
     where niceCase e = showExpr e ++ "\nReduction yields: " ++ showExpr (reduce e)
           badCase x = "Error parsing. Use :q to quit.\n\n" ++ show x
 
