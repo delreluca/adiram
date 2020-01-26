@@ -3,7 +3,8 @@ module ULC
   , Expr(Free, App, Lam)
   , mkLam
   , showExpr
-  , reduce
+  , reduceCbv
+  , reduceNormal
   , parser
   )
 where
@@ -94,17 +95,35 @@ isValue (Free _ ) = True
 isValue (Lam _ _) = True
 isValue _         = False
 
--- | Performs one step of a reduction, applying exactly one of the evaluation rules
-reduce1 :: Expr a -> Maybe (Expr a)
-reduce1 (App (Lam _ (ExprScope inner)) value) | isValue value =
+-- | Performs one step of a reduction using call-by-value.
+-- It only reduces the outermost, leftmost redex if its right hand side is a value. Otherwise it reduces the right hand side first.
+reduce1Cbv :: Expr a -> Maybe (Expr a)
+reduce1Cbv (App (Lam _ (ExprScope inner)) value) | isValue value =
   Just $ substAppAbs value inner
-reduce1 (App value next) | isValue value = App value <$> reduce1 next
-reduce1 (App next later)                 = flip App later <$> reduce1 next
-reduce1 _                                = Nothing
+reduce1Cbv (App value next) | isValue value = App value <$> reduce1Cbv next
+reduce1Cbv (App next later)                 = flip App later <$> reduce1Cbv next
+reduce1Cbv _                                = Nothing
 
--- | Reduces an expression until a value is attained
-reduce :: Expr a -> Expr a
-reduce e = maybe e reduce $ reduce1 e
+-- | Reduces an expression using normal order.
+-- It reduces the outermost, leftmost redex.
+reduce1Normal :: Expr a -> Maybe (Expr a)
+reduce1Normal (App (Lam _ (ExprScope inner)) rhs) =
+  Just $ substAppAbs rhs inner
+reduce1Normal (App lhs rhs) = case reduce1Normal lhs of
+                                Just lhs' -> Just $ App lhs' rhs
+                                Nothing -> App lhs <$> reduce1Normal rhs
+reduce1Normal (Lam v (ExprScope inner)) = Lam v . ExprScope <$> reduce1Normal inner
+reduce1Normal _ = Nothing
+
+-- | Reduces an expression step by step as long as an evaluation step is possible.
+reduce :: (Expr a -> Maybe (Expr a)) -> Expr a -> Expr a
+reduce t e = maybe e (reduce t) $ t e
+
+-- | Reduces an expression using call-by-value.
+reduceCbv = reduce reduce1Cbv
+
+-- | Reduces an expression using normal order.
+reduceNormal = reduce reduce1Normal
 
 -- Parsing
 name = (:) <$> letter <*> many alphaNum
