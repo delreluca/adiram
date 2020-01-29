@@ -2,7 +2,7 @@ module ULC
   ( ExprScope()
   , Expr(Free, App, Lam)
   , mkLam
-  , showExpr
+  , prettyPrint
   , reduceCbv
   , reduceNormal
   , parser
@@ -52,14 +52,21 @@ freeName :: String -> [String] -> [String]
 freeName n ns | n `notElem` ns = n : ns
 freeName n ns                  = freeName (n ++ "'") ns
 
--- | Prints a lambda expression; not pretty
-showExpr :: Expr String -> String
-showExpr = go []
+-- | Prints an expression in the untyped lambda calculus. Collisions in bound variables are resolved by apostrophe suffixes.
+-- Tries to reduce the number of parantheses by only using them to preserve application order and preventing suffxing to abstractions.
+prettyPrint :: Expr String -> String
+prettyPrint = go []
  where
-  go _  (Free  a                ) = a
-  go ns (Bound i                ) = ns !! i
-  go ns (App l r                ) = "(" ++ go ns l ++ ") (" ++ go ns r ++ ")"
-  go ns (Lam n (ExprScope inner)) = "λ" ++ head ns' ++ "." ++ go ns' inner
+  go _  (Free  a) = a
+  go ns (Bound i) = ns !! i
+  go ns (App l r) = lefty ns l ++ " " ++ righty ns r
+   where
+    lefty ns x@(Lam _ _        ) = "(" ++ go ns x ++ ")" -- it is not safe to append to an abstraction to the right
+    lefty ns x@(App _ (Lam _ _)) = "(" ++ go ns x ++ ")" -- same if it is the right hand side of an application
+    lefty ns x                   = go ns x
+    righty ns x@(App _ _) = "(" ++ go ns x ++ ")" -- appending an application without parentheses will change order
+    righty ns x           = go ns x
+  go ns (Lam n (ExprScope t)) = "λ" ++ head ns' ++ "." ++ go ns' t
     where ns' = freeName n ns
 
 -- | Shifting of indices with cutoffs to protect bound variables in current scope
@@ -110,9 +117,10 @@ reduce1Normal :: Expr a -> Maybe (Expr a)
 reduce1Normal (App (Lam _ (ExprScope inner)) rhs) =
   Just $ substAppAbs rhs inner
 reduce1Normal (App lhs rhs) = case reduce1Normal lhs of
-                                Just lhs' -> Just $ App lhs' rhs
-                                Nothing -> App lhs <$> reduce1Normal rhs
-reduce1Normal (Lam v (ExprScope inner)) = Lam v . ExprScope <$> reduce1Normal inner
+  Just lhs' -> Just $ App lhs' rhs
+  Nothing   -> App lhs <$> reduce1Normal rhs
+reduce1Normal (Lam v (ExprScope inner)) =
+  Lam v . ExprScope <$> reduce1Normal inner
 reduce1Normal _ = Nothing
 
 -- | Reduces an expression step by step as long as an evaluation step is possible.

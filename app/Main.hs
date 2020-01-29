@@ -15,7 +15,7 @@ readUserInput = do
 
 tellBack :: String -> IO ()
 tellBack s = putStrLn $ either badCase niceCase (P.parse parser "$repl" s)
-    where niceCase e = showExpr e ++ "\nCall-by-value yields: " ++ showExpr (reduceCbv e) ++ "\nNormal order yields:  " ++ showExpr (reduceNormal e)
+    where niceCase e = prettyPrint e ++ "\nCall-by-value yields: " ++ prettyPrint (reduceCbv e) ++ "\nNormal order yields:  " ++ prettyPrint (reduceNormal e)
           badCase x = "Error parsing. Use :q to quit.\n\n" ++ show x
 
 repl :: IO ()
