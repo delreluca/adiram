@@ -37,7 +37,7 @@ data Expr a = Free a -- ^ A free variable
 abstract :: Eq a => a -> Expr a -> ExprScope a
 abstract nameToBind e = ExprScope $ go 0 e
  where
-  go level (Bound i) = Bound i
+  go _ (Bound i) = Bound i
   go level (Free a) | nameToBind == a = Bound level
                     | otherwise       = Free a
   go level (App l r) = go level l `App` go level r
@@ -59,13 +59,13 @@ prettyPrint = go []
  where
   go _  (Free  a) = a
   go ns (Bound i) = ns !! i
-  go ns (App l r) = lefty ns l ++ " " ++ righty ns r
+  go ns (App l r) = lhs ns l ++ " " ++ rhs ns r
    where
-    lefty ns x@(Lam _ _        ) = "(" ++ go ns x ++ ")" -- it is not safe to append to an abstraction to the right
-    lefty ns x@(App _ (Lam _ _)) = "(" ++ go ns x ++ ")" -- same if it is the right hand side of an application
-    lefty ns x                   = go ns x
-    righty ns x@(App _ _) = "(" ++ go ns x ++ ")" -- appending an application without parentheses will change order
-    righty ns x           = go ns x
+    lhs ns' x@(Lam _ _        ) = "(" ++ go ns' x ++ ")" -- it is not safe to append to an abstraction to the right
+    lhs ns' x@(App _ (Lam _ _)) = "(" ++ go ns' x ++ ")" -- same if it is the right hand side of an application
+    lhs ns' x                   = go ns' x
+    rhs ns' x@(App _ _) = "(" ++ go ns' x ++ ")" -- appending an application without parentheses will change order
+    rhs ns' x           = go ns' x
   go ns (Lam n (ExprScope t)) = "λ" ++ head ns' ++ "." ++ go ns' t
     where ns' = freeName n ns
 
@@ -79,8 +79,11 @@ shift by cutoff (App l r) = shift by cutoff l `App` shift by cutoff r
 shift by cutoff (Lam a (ExprScope inner)) =
   Lam a (ExprScope (shift by (succ cutoff) inner))
 
--- | Default shift by 1 and cutoff 0
-shift10 = shift 1 0
+shiftInc :: Expr a -> Expr a
+shiftInc = shift 1 0
+
+shiftDec :: Expr a -> Expr a
+shiftDec = shift (-1) 0
 
 -- | Performs a substitution of bound variables
 subst :: Int -> Expr a -> Expr a -> Expr a
@@ -89,11 +92,11 @@ subst i by x@(Bound j) | i == j    = by
                        | otherwise = x
 subst i by (App l r) = subst i by l `App` subst i by r
 subst i by (Lam a (ExprScope inner)) =
-  Lam a (ExprScope (subst (succ i) (shift10 by) inner))
+  Lam a (ExprScope (subst (succ i) (shiftInc by) inner))
 
 -- | Performs the substiution of the App-Abs evaluation rule
 substAppAbs :: Expr a -> Expr a -> Expr a
-substAppAbs by scoped = shift (-1) 0 (subst 0 (shift10 by) scoped)
+substAppAbs by scoped = shiftDec (subst 0 (shiftInc by) scoped)
 
 -- | Determines whether an expression is a value, i.e. cannot be reduced anymore
 -- Since we use free variables in addition to de Brujin indices, we well consider those values as well
@@ -128,20 +131,30 @@ reduce :: (Expr a -> Maybe (Expr a)) -> Expr a -> Expr a
 reduce t e = maybe e (reduce t) $ t e
 
 -- | Reduces an expression using call-by-value.
+reduceCbv :: Expr a -> Expr a
 reduceCbv = reduce reduce1Cbv
 
 -- | Reduces an expression using normal order.
+reduceNormal :: Expr a -> Expr a
 reduceNormal = reduce reduce1Normal
 
 -- Parsing
+type P a = Parsec String () a
+type PExpr = P (Expr String)
+
+name :: P String
 name = (:) <$> letter <*> many alphaNum
+
+appl :: P (Expr String -> Expr String -> Expr String)
+appl = spaces $> App
+
+free, abst, paren, token, term :: PExpr
 free = Free <$> name
 abst = mkLam <$> (char '\\' *> name <* char '.') <*> term
-appl = spaces $> App
 paren = char '(' *> term <* char ')'
 token = spaces *> (free <|> abst <|> paren) <* spaces
 term = chainl1 token appl
 
 -- | Parses a full (i.e. awaiting EOF at the end) expression in the untyped lambda calculus
-parser :: Parsec String () (Expr String)
+parser :: PExpr
 parser = term <* eof

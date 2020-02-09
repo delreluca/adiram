@@ -14,7 +14,7 @@ repl = do
   case input of
     Nothing   -> return ()
     Just ":q" -> H.outputStrLn "Goodbye"
-    Just x    -> (liftIO $ tellBack x) >> repl
+    Just x    -> liftIO (tellBack x) >> repl
 
 tellBack :: String -> IO ()
 tellBack s = putStrLn $ either badCase niceCase (P.parse parser "$repl" s)
@@ -27,4 +27,4 @@ tellBack s = putStrLn $ either badCase niceCase (P.parse parser "$repl" s)
       ++ prettyPrint (reduceNormal e)
   badCase x = "Error parsing. Use :q to quit.\n\n" ++ show x
 main :: IO ()
-main = putStrLn "Welcome to adiram" >> (H.runInputT H.defaultSettings repl)
+main = putStrLn "Welcome to adiram" >> H.runInputT H.defaultSettings repl
