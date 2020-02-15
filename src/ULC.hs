@@ -1,15 +1,19 @@
 module ULC
   ( ExprScope()
   , Expr(Free, App, Lam)
+  , Environment(Environment)
+  , freeVars
   , mkLam
   , prettyPrint
   , reduceCbv
   , reduceNormal
   , parser
+  , name
   )
 where
 
 import           Data.Functor                   ( ($>) )
+import qualified Data.Map                       as M
 import           Text.Parsec                    ( (<|>)
                                                 , eof
                                                 , spaces
@@ -99,43 +103,43 @@ substAppAbs :: Expr a -> Expr a -> Expr a
 substAppAbs by scoped = shiftDec (subst 0 (shiftInc by) scoped)
 
 -- | Determines whether an expression is a value, i.e. cannot be reduced anymore
--- Since we use free variables in addition to de Brujin indices, we well consider those values as well
 isValue :: Expr a -> Bool
-isValue (Free _ ) = True
 isValue (Lam _ _) = True
 isValue _         = False
 
 -- | Performs one step of a reduction using call-by-value.
 -- It only reduces the outermost, leftmost redex if its right hand side is a value. Otherwise it reduces the right hand side first.
-reduce1Cbv :: Expr a -> Maybe (Expr a)
-reduce1Cbv (App (Lam _ (ExprScope inner)) value) | isValue value =
+reduce1Cbv :: Ord a => Environment a -> Expr a -> Maybe (Expr a)
+reduce1Cbv _ (App (Lam _ (ExprScope inner)) value) | isValue value =
   Just $ substAppAbs value inner
-reduce1Cbv (App value next) | isValue value = App value <$> reduce1Cbv next
-reduce1Cbv (App next later)                 = flip App later <$> reduce1Cbv next
-reduce1Cbv _                                = Nothing
+reduce1Cbv g (App value next) | isValue value = App value <$> reduce1Cbv g next
+reduce1Cbv g (App next later)                 = flip App later <$> reduce1Cbv g next
+reduce1Cbv g (Free n)                         = M.lookup n $ freeVars g
+reduce1Cbv _ _                                = Nothing
 
 -- | Reduces an expression using normal order.
 -- It reduces the outermost, leftmost redex.
-reduce1Normal :: Expr a -> Maybe (Expr a)
-reduce1Normal (App (Lam _ (ExprScope inner)) rhs) =
+reduce1Normal :: Ord a => Environment a -> Expr a -> Maybe (Expr a)
+reduce1Normal _ (App (Lam _ (ExprScope inner)) rhs) =
   Just $ substAppAbs rhs inner
-reduce1Normal (App lhs rhs) = case reduce1Normal lhs of
+reduce1Normal g (App lhs rhs) = case reduce1Normal g lhs of
   Just lhs' -> Just $ App lhs' rhs
-  Nothing   -> App lhs <$> reduce1Normal rhs
-reduce1Normal (Lam v (ExprScope inner)) =
-  Lam v . ExprScope <$> reduce1Normal inner
-reduce1Normal _ = Nothing
+  Nothing   -> App lhs <$> reduce1Normal g rhs
+reduce1Normal g (Lam v (ExprScope inner)) =
+  Lam v . ExprScope <$> reduce1Normal g inner
+reduce1Normal g (Free n) = M.lookup n $ freeVars g
+reduce1Normal _ _ = Nothing
 
 -- | Reduces an expression step by step as long as an evaluation step is possible.
-reduce :: (Expr a -> Maybe (Expr a)) -> Expr a -> Expr a
-reduce t e = maybe e (reduce t) $ t e
+reduce :: Ord a => (Environment a -> Expr a -> Maybe (Expr a)) -> Environment a -> Expr a -> Expr a
+reduce t g e = maybe e (reduce t g) $ t g e
 
 -- | Reduces an expression using call-by-value.
-reduceCbv :: Expr a -> Expr a
+reduceCbv :: Ord a => Environment a -> Expr a -> Expr a
 reduceCbv = reduce reduce1Cbv
 
 -- | Reduces an expression using normal order.
-reduceNormal :: Expr a -> Expr a
+reduceNormal :: Ord a => Environment a -> Expr a -> Expr a
 reduceNormal = reduce reduce1Normal
 
 -- Parsing
@@ -158,3 +162,6 @@ term = chainl1 token appl
 -- | Parses a full (i.e. awaiting EOF at the end) expression in the untyped lambda calculus
 parser :: PExpr
 parser = term <* eof
+
+-- | Contains the environment of out of scope free variables
+newtype Environment a = Environment { freeVars :: M.Map a (Expr a)} deriving (Show, Eq)
