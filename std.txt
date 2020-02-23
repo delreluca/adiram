@@ -1,0 +1,18 @@
+:def not \a.\t.\f.a f t
+:def and \a.\b.\t.\f.a (b t f) f
+:def or \a.\b.\t.\f.a t (b t f)
+:def xor \a.\b.\t.\f.a (b f t) (b t f)
+:def tru \t.\f.t
+:def fls not tru
+:def pair \a.\b.\c.c a b
+:def fst \p.p tru
+:def snd \p.p fls
+:def is0 \n.n (\x.fls) tru
+:def succ \n.\s.\z.s (n s z)
+:def add \m.\n.m succ n
+:def mul \m.\n.n (add m) 0
+:def pow \m.\n.n (mul m) 1
+:def succ2 \nn.pair (snd nn) (succ (snd nn))
+:def pred \n.fst (n succ2 (pair 0 0))
+:def sub \m.\n.n pred m
+:def nateq \n.\m.and (is0 (sub m n)) (is0 (sub n m))
