@@ -7,23 +7,11 @@ module ULC
   , prettyPrint
   , reduceCbv
   , reduceNormal
-  , parser
-  , name
   )
 where
 
-import           Data.Functor                   ( ($>) )
 import qualified Data.Map                       as M
-import           Text.Parsec                    ( (<|>)
-                                                , eof
-                                                , spaces
-                                                , char
-                                                , letter
-                                                , alphaNum
-                                                , many
-                                                , chainl1
-                                                , Parsec
-                                                )
+
 
 -- | A scoped expression that contains bound variables; no value constructor is exported, use 'mkLam' to create lambda abstractions.
 newtype ExprScope a = ExprScope (Expr a)
@@ -141,27 +129,6 @@ reduceCbv = reduce reduce1Cbv
 -- | Reduces an expression using normal order.
 reduceNormal :: Ord a => Environment a -> Expr a -> Expr a
 reduceNormal = reduce reduce1Normal
-
--- Parsing
-type P a = Parsec String () a
-type PExpr = P (Expr String)
-
-name :: P String
-name = (:) <$> letter <*> many alphaNum
-
-appl :: P (Expr String -> Expr String -> Expr String)
-appl = spaces $> App
-
-free, abst, paren, token, term :: PExpr
-free = Free <$> name
-abst = mkLam <$> (char '\\' *> name <* char '.') <*> term
-paren = char '(' *> term <* char ')'
-token = spaces *> (free <|> abst <|> paren) <* spaces
-term = chainl1 token appl
-
--- | Parses a full (i.e. awaiting EOF at the end) expression in the untyped lambda calculus
-parser :: PExpr
-parser = term <* eof
 
 -- | Contains the environment of out of scope free variables
 newtype Environment a = Environment { freeVars :: M.Map a (Expr a)} deriving (Show, Eq)

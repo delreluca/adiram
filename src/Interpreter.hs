@@ -4,8 +4,8 @@ module Interpreter
     )
 where
 
-import           ULC                            ( Expr
-                                                , parser
+import           ULC                            ( Expr )
+import           ULC.Parser                     ( parser
                                                 , name
                                                 )
 import           Text.Parsec                    ( Parsec

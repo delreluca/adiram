@@ -1,12 +1,15 @@
 import           Test.Tasty
 import           Test.Tasty.HUnit
 import           ULC
+import           ULC.Parser
 import qualified Text.Parsec                   as P
 
 main = defaultMain tests
 
 tests :: TestTree
-tests = testGroup "All tests" [ulcId, ulcChurchZero, ulcChurchOne, ulcComplex, ulcPrettyPrint]
+tests = testGroup
+    "All tests"
+    [ulcId, ulcChurchZero, ulcChurchOne, ulcComplex, ulcPrettyPrint, ulcChurchSugar]
 
 -- | Adds combinations of whitespace in front and or after a string.
 padCombinations :: Int -> String -> [String]
@@ -53,12 +56,16 @@ ulcComplex = ulcParsing
     (padCombinations 1 "(\\s.\\z.s z) (\\c.\\s.\\z.s (c s z)) \\s.\\z.z")
     ((c1 `App` cScc) `App` c0)
 
+ulcChurchSugar :: TestTree
+ulcChurchSugar = testGroup "Syntactic sugar for Church numerals"
+                           [ulcParsing ["0"] c0, ulcParsing ["1"] c1]
+
 -- | Test cases for the untyped lambda calculus parser.
 ulcParsing :: [String] -> Expr String -> TestTree
 ulcParsing ss expr = testGroup
-    ("Untyped lambda calculus parser tests for " ++ prettyPrint expr)
+    ("Expecting to parse " ++ prettyPrint expr)
     (   (\s ->
-            testCase ("ULC parsing [" ++ s ++ "]")
+            testCase ("Input [" ++ s ++ "]")
                 $ let res = case P.parse parser "" s of
                           Right a -> a
                           Left  e -> error $ "Parsec error: " ++ show e
