@@ -24,7 +24,7 @@ Welcome to adiram
 
 ## Syntax and evaluation
 
-Currently only untyped lambda calculus is supported. The syntax used in _adiram_ replaces the lambda sign by `\` and does not allow currying. Thus `\xy.x` is not valid and has to be written like `\x.\y.x`.
+Currently only untyped lambda calculus is supported. The syntax used in _adiram_ replaces the lambda sign by `\` and does not allow multiple bindings instead of currying. Thus `\x y.x` is not valid and has to be written like `\x.\y.x`.
 
 Variable names may consist of more than one ASCII letter and digit but have to start with a letter.
 
@@ -50,7 +50,7 @@ Normal order yields:  λs.λz.s z
 
 ## Defining and importing expressions
 
-You can define your own expressions and use them afterwards. The syntax is `:def 〈name〉 〈expression〉`. The name has to follow the rules for variable names.
+You can define your own expressions and use them afterwards. The syntax is `:def 〈name〉 〈expression〉`. The name has to follow the rules for variable names.
 
 The next example shows how to define booleans and a zero-check for Church numerals.
 
@@ -64,7 +64,7 @@ Call-by-value yields: λt.λf.(λt'.λf'.t') f t
 Normal order yields:  λt.λf.f
 ```
 
-To facilitate definitions we allow to load files. The syntax is `:load 〈path〉`. The lines in the file will be run just like in the REPL.
+To facilitate definitions we allow to load files. The syntax is `:load 〈path〉`. The lines in the file will be run just like in the REPL.
 
 With the supplied `std.txt` file the previous example could have been run like this:
 
