@@ -3,7 +3,9 @@ module ULC
   , Expr(Free, App, Lam)
   , Environment(Environment)
   , freeVars
+  , freeName
   , mkLam
+  , names
   , prettyPrint
   , reduceCbv
   , reduceNormal
@@ -40,6 +42,14 @@ abstract nameToBind e = ExprScope $ go 0 e
 mkLam :: Eq a => a -> Expr a -> Expr a
 mkLam a = Lam a . abstract a
 
+-- | Returns the free (unbound) variables in an expression. The result might contain duplicates.
+names :: Expr a -> [a]
+names (Bound _) = []
+names (Free n) = [n]
+names (a `App ` b) = names a ++ names b
+names (Lam _ (ExprScope a)) = names a
+
+-- | Finds a name that is not used by a free variable yet.
 freeName :: String -> [String] -> [String]
 freeName n ns | n `notElem` ns = n : ns
 freeName n ns                  = freeName (n ++ "'") ns
