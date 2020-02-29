@@ -40,7 +40,7 @@ execCommand f (Cont g) cmd = case parse commandParser f cmd of
         Right Quit -> pure Stop
         Right (Define n e) ->
                 pure $ Cont (Environment $ insert n e (freeVars g))
-        Right (Load     f) -> loadFile (Cont g) f
+        Right (Load     f') -> loadFile (Cont g) f'
         Right (Evaluate e) -> liftIO (tellBack g e) $> Cont g
 
 tellBack :: Environment String -> Expr String -> IO ()
