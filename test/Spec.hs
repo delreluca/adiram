@@ -54,6 +54,7 @@ cScc =
 cNil = mkLam "c" $ mkLam "n" $ Free "n" 
 cSingleList e = mkLam "c" $ mkLam "n" $ Free "c" `App` e `App` Free "n"
 cDoubleList e1 e2 = mkLam "c" $ mkLam "n" $ Free "c" `App` e1 `App` (Free "c" `App` e2 `App` Free "n")
+cNameClash = mkLam "c'" $ mkLam "n'" $ Free "c'" `App` Free "c" `App` (Free "c'" `App` Free "n" `App` Free "n'")
 
 ulcComplex :: TestTree
 ulcComplex = ulcParsing
@@ -67,7 +68,8 @@ ulcChurchSugar = testGroup "Syntactic sugar for Church numerals and lists"
                                ulcParsing ["1"] c1,
                                ulcParsing ["[0]"] $ cSingleList c0,
                                ulcParsing ["[]"] cNil,
-                               ulcParsing ["[a,1]"] $ cDoubleList (Free "a") c1]
+                               ulcParsing ["[a,1]"] $ cDoubleList (Free "a") c1,
+                               ulcParsing ["[c,n]"] cNameClash]
 
 -- | Test cases for the untyped lambda calculus parser.
 ulcParsing :: [String] -> Expr String -> TestTree

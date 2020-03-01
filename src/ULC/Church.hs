@@ -14,7 +14,7 @@ churchNumeral s z = mkLam s . mkLam z . go
 
 -- | Creates a Church encoded list from a Haskell foldable.
 churchList :: (Eq a, Foldable t) => a -> a -> (a -> [a] -> a) -> t (Expr a) -> Expr a
-churchList c n namer es = mkLam c' . mkLam n' $ foldr (\e -> (Free c `App` e `App`)) (Free n) es
+churchList c n namer es = mkLam c' . mkLam n' $ foldr (\e -> (Free c' `App` e `App`)) (Free n') es
   where c' = namer c inUse
         n' = namer n inUse
         inUse = foldr (\e a -> a ++ names e) [] es
