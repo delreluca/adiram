@@ -16,3 +16,6 @@
 :def pred \n.fst (n succ2 (pair 0 0))
 :def sub \m.\n.n pred m
 :def nateq \n.\m.and (is0 (sub m n)) (is0 (sub n m))
+:def cons \x.\xs.\c.\n.c x (xs c n)
+:def isNil \xs.xs (\h.\t.fls) tru
+:def y \f.(\x.f (x x)) (\x. f (x x))

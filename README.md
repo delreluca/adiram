@@ -39,13 +39,22 @@ Call-by-value yields: λs.λz.s z
 Normal order yields:  λs.λz.s z
 ```
 
-There is syntactic sugar for numerals, you can just type the natural number in decimal digits and it will be resolved to its Church encoding. The following expression is equivalent to the previous run:
+There is syntactic sugar for numerals and lists, you can just type the natural number in decimal digits and it will be resolved to its Church encoding, using `s` for _succ_ and `z` for 0. The following expression is equivalent to the previous run:
 
 ```console
 λ 1
 \s.\z.s z
 Call-by-value yields: λs.λz.s z
 Normal order yields:  λs.λz.s z
+```
+
+For lists embrace the list in square brackets and separated its members by commas. The list will be desugared into its Church encoding using `c` as the _cons_ binder and `n` for _nil._ Should names clash they will be suffixed by apostrophes. For example:
+
+```console
+λ [A,B,C]
+λc.λn.c A (c B (c C n))
+Call-by-value yields: λc.λn.c A (c B (c C n))
+Normal order yields:  λc.λn.c A (c B (c C n))
 ```
 
 ## Defining and importing expressions
@@ -60,7 +69,7 @@ The next example shows how to define booleans and a zero-check for Church numera
 λ :def is0 \n.n (\x.fls) tru
 λ is0 1
 is0 λs.λz.s z
-Call-by-value yields: λt.λf.(λt'.λf'.t') f t
+Call-by-value yields: λt.λf.f
 Normal order yields:  λt.λf.f
 ```
 
@@ -72,6 +81,12 @@ With the supplied `std.txt` file the previous example could have been run like t
 λ :load std.txt
 λ is0 1
 is0 λs.λz.s z
-Call-by-value yields: λt.λf.(λt'.λf'.t') f t
+Call-by-value yields: λt.λf.tru f t
 Normal order yields:  λt.λf.f
 ```
+
+The difference in call-by-value comes from the definition of `fls` as `not tru` in the supplied file.
+
+## Naming of free variables
+
+**NOTE:** The supplied functions will make use of abstractions that bind lowercase characters `t`, `f`, `p`, `m`, `n`, `s`, `z`, `c`, `n`, `x`, `y` for creating new booleans, numbers or lists. This can have unintended effects when you use lowercase characters for free variables. You can use uppercase characters or longer variable names instead.
