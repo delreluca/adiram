@@ -2,7 +2,10 @@ module Main where
 
 import           ULC
 import           Interpreter                    ( Command(..)
+                                                , EvaluationFlag(..)
                                                 , commandParser
+                                                , cbvRequested
+                                                , normalOrderRequested
                                                 )
 import           Control.Monad                  ( void
                                                 , foldM
@@ -40,17 +43,18 @@ execCommand f (Cont g) cmd = case parse commandParser f cmd of
         Right Quit -> pure Stop
         Right (Define n e) ->
                 pure $ Cont (Environment $ insert n e (freeVars g))
-        Right (Load     f') -> loadFile (Cont g) f'
-        Right (Evaluate e) -> liftIO (tellBack g e) $> Cont g
+        Right (Load f'      ) -> loadFile (Cont g) f'
+        Right (Evaluate fs e) -> liftIO (tellBack g fs e) $> Cont g
 
-tellBack :: Environment String -> Expr String -> IO ()
-tellBack g e =
-        putStrLn
-                $  prettyPrint e
-                ++ "\nCall-by-value yields: "
-                ++ prettyPrint (reduceCbv g e)
-                ++ "\nNormal order yields:  "
-                ++ prettyPrint (reduceNormal g e)
+tellBack :: Environment String -> [EvaluationFlag] -> Expr String -> IO ()
+tellBack g fs e = putStrLn $ prettyPrint e ++ (cbv fs) ++ (no fs)
+    where
+        cbv fs' | cbvRequested fs' =
+                "\nCall-by-value yields: " ++ prettyPrint (reduceCbv g e)
+        cbv _ = ""
+        no fs' | normalOrderRequested fs' =
+                "\nNormal order yields:  " ++ prettyPrint (reduceNormal g e)
+        no _ = ""
 
 -- TODO: consider using Text or ByteString for strict IO.
 
@@ -60,7 +64,7 @@ strictify m = m >>= (\s -> length s `seq` return s)
 fileLines :: String -> IO [String]
 fileLines path = do
         handle <- openFile path ReadMode
-        s <- lines <$> strictify (hGetContents handle)
+        s      <- lines <$> strictify (hGetContents handle)
         hClose handle
         pure s
 
