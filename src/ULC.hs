@@ -12,7 +12,7 @@ module ULC
   )
 where
 
-import qualified Data.Map                       as M
+import qualified Data.Map                      as M
 
 
 -- | A scoped expression that contains bound variables; no value constructor is exported, use 'mkLam' to create lambda abstractions.
@@ -44,10 +44,10 @@ mkLam a = Lam a . abstract a
 
 -- | Returns the free (unbound) variables in an expression. The result might contain duplicates.
 names :: Expr a -> [a]
-names (Bound _) = []
-names (Free n) = [n]
-names (a `App ` b) = names a ++ names b
-names (Lam _ (ExprScope a)) = names a
+names (Bound _                ) = []
+names (Free  n                ) = [n]
+names (a   `App` b            ) = names a ++ names b
+names (Lam _     (ExprScope a)) = names a
 
 -- | Finds a name that is not used by a free variable yet.
 freeName :: String -> [String] -> [String]
@@ -101,19 +101,21 @@ substAppAbs :: Expr a -> Expr a -> Expr a
 substAppAbs by scoped = shiftDec (subst 0 (shiftInc by) scoped)
 
 -- | Determines whether an expression is a value, i.e. cannot be reduced anymore
-isValue :: Expr a -> Bool
-isValue (Lam _ _) = True
-isValue _         = False
+-- In order to determine whether a free variable is a value the environment is needed.
+extractValue :: Ord a => Environment a -> Expr a -> Maybe (Expr a)
+extractValue g (Free n) = M.lookup n (freeVars g) >>= extractValue g
+extractValue _ (Lam _ (ExprScope i)) = Just i
+extractValue _ _ = Nothing
 
 -- | Performs one step of a reduction using call-by-value.
 -- It only reduces the outermost, leftmost redex if its right hand side is a value. Otherwise it reduces the right hand side first.
 reduce1Cbv :: Ord a => Environment a -> Expr a -> Maybe (Expr a)
-reduce1Cbv _ (App (Lam _ (ExprScope inner)) value) | isValue value =
-  Just $ substAppAbs value inner
-reduce1Cbv g (App value next) | isValue value = App value <$> reduce1Cbv g next
-reduce1Cbv g (App next later)                 = flip App later <$> reduce1Cbv g next
-reduce1Cbv g (Free n)                         = M.lookup n $ freeVars g
-reduce1Cbv _ _                                = Nothing
+reduce1Cbv g (App l r) = case (extractValue g l, extractValue g r) of
+  (Just li, Just _ ) -> Just $ substAppAbs r li
+  (Just _ , Nothing) -> App l <$> reduce1Cbv g r
+  (Nothing, _      ) -> flip App r <$> reduce1Cbv g l
+reduce1Cbv g (Free n) = M.lookup n $ freeVars g
+reduce1Cbv _ _        = Nothing
 
 -- | Reduces an expression using normal order.
 -- It reduces the outermost, leftmost redex.
@@ -126,10 +128,15 @@ reduce1Normal g (App lhs rhs) = case reduce1Normal g lhs of
 reduce1Normal g (Lam v (ExprScope inner)) =
   Lam v . ExprScope <$> reduce1Normal g inner
 reduce1Normal g (Free n) = M.lookup n $ freeVars g
-reduce1Normal _ _ = Nothing
+reduce1Normal _ _        = Nothing
 
 -- | Reduces an expression step by step as long as an evaluation step is possible.
-reduce :: Ord a => (Environment a -> Expr a -> Maybe (Expr a)) -> Environment a -> Expr a -> Expr a
+reduce
+  :: Ord a
+  => (Environment a -> Expr a -> Maybe (Expr a))
+  -> Environment a
+  -> Expr a
+  -> Expr a
 reduce t g e = maybe e (reduce t g) $ t g e
 
 -- | Reduces an expression using call-by-value.
