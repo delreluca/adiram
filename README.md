@@ -44,6 +44,10 @@ As you can see, normal order is the default evaluation strategy.
 
 You can prefix the expression by `!`, followed by flags, to control the evaluation. If you want to use call-by-value evaluation you can supply the flag `v`. If you want both normal order and call-by-value you can use `!nv`. If you only want the expression pretty-printed back use `!p` to disable evaluation.
 
+### Iteration limits
+
+With references to free variables (see below) it is possible to generate infinite regressions. To break them a default iteration limit of 10000 is in place. To change the limit use the command `:set maxiter 〈new-limit〉`.
+
 ### Syntactic sugar
 
 There is syntactic sugar for numerals and lists, you can just type the natural number in decimal digits and it will be resolved to its Church encoding, using `s` for _succ_ and `z` for 0. The following expression is equivalent to the previous run:
@@ -67,6 +71,8 @@ Normal order yields:  λc.λn.c A (c B (c C n))
 ## Defining and importing expressions
 
 You can define your own expressions and use them afterwards. The syntax is `:def 〈name〉 〈expression〉`. The name has to follow the rules for variable names.
+
+It is possible to compare the result against known variables by supplying the lookup flag `f`, e.g. `!nf` for normal order evaluation.
 
 The next example shows how to define booleans and a zero-check for Church numerals.
 

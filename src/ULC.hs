@@ -3,12 +3,14 @@ module ULC
   , Expr(Free, App, Lam)
   , Environment(Environment)
   , freeVars
+  , iterationLimit
   , freeName
   , mkLam
   , names
   , prettyPrint
   , reduceCbv
   , reduceNormal
+  , stripNames
   )
 where
 
@@ -26,6 +28,13 @@ data Expr a = Free a -- ^ A free variable
             | App (Expr a) (Expr a) -- ^ An application of a right to a left expression
             | Lam a (ExprScope a) -- ^ An abstraction with a scoped inner term with bound variables and a preferred name for it
     deriving (Eq, Show)
+
+-- | Replaces the preferred names in lambda abstractions with a static name.
+-- This is useful for comparing expressions without comparing preferred names.
+stripNames :: a -> Expr a -> Expr a
+stripNames a (Lam _ (ExprScope i)) = Lam a (ExprScope (stripNames a i))
+stripNames a (App x y            ) = stripNames a x `App` stripNames a y
+stripNames _ x                     = x
 
 -- | Takes an expression and turns it into a scope by binding a given free variable.
 abstract :: Eq a => a -> Expr a -> ExprScope a
@@ -132,12 +141,14 @@ reduce1Normal _ _        = Nothing
 
 -- | Reduces an expression step by step as long as an evaluation step is possible.
 reduce
-  :: Ord a
-  => (Environment a -> Expr a -> Maybe (Expr a))
+  :: (Environment a -> Expr a -> Maybe (Expr a))
   -> Environment a
   -> Expr a
   -> Expr a
-reduce t g e = maybe e (reduce t g) $ t g e
+reduce t g = go $ iterationLimit g
+ where
+  go 0 x = x
+  go n x = maybe x (go (pred n)) $ t g x
 
 -- | Reduces an expression using call-by-value.
 reduceCbv :: Ord a => Environment a -> Expr a -> Expr a
@@ -148,4 +159,4 @@ reduceNormal :: Ord a => Environment a -> Expr a -> Expr a
 reduceNormal = reduce reduce1Normal
 
 -- | Contains the environment of out of scope free variables
-newtype Environment a = Environment { freeVars :: M.Map a (Expr a)} deriving (Show, Eq)
+data Environment a = Environment { freeVars :: M.Map a (Expr a), iterationLimit :: Int} deriving (Show, Eq)
