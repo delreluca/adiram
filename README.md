@@ -72,7 +72,7 @@ Normal order yields:  λc.λn.c A (c B (c C n))
 
 You can define your own expressions and use them afterwards. The syntax is `:def 〈name〉 〈expression〉`. The name has to follow the rules for variable names.
 
-It is possible to compare the result against known variables by supplying the lookup flag `f`, e.g. `!nf` for normal order evaluation.
+It is possible to compare the result against known variables by supplying the lookup flag `l`, e.g. `!nl` for normal order evaluation.
 
 The next example shows how to define booleans and a zero-check for Church numerals.
 
@@ -88,14 +88,14 @@ Normal order yields:  λt.λf.f
 
 To facilitate definitions we allow to load files. The syntax is `:load 〈path〉`. The lines in the file will be run just like in the REPL.
 
-With the supplied `std.txt` file the previous example could have been run like this:
+With the supplied `std.txt` file the previous example could have been run like this, also showing the lookup feature:
 
 ```console
-λ :load std.txt
-λ !nv is0 1
+λ !nvl is0 1
 is0 λs.λz.s z
 Call-by-value yields: λt.λf.tru f t
 Normal order yields:  λt.λf.f
+This is equivalent to fls
 ```
 
 The difference in call-by-value comes from the definition of `fls` as `not tru` in the supplied file.
