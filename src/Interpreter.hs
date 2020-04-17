@@ -8,20 +8,20 @@ module Interpreter
     )
 where
 
+import Protolude
+import Data.Text (pack)
 import           ULC                            ( Expr )
 import           ULC.Parser                     ( parser
                                                 , name
+                                                , nat
                                                 )
 import           Text.Parsec                    ( Parsec
                                                 , char
-                                                , digit
                                                 , string
-                                                , (<|>)
                                                 , many1
                                                 , anyChar
                                                 , optionMaybe
                                                 )
-import           Data.Functor                   ( ($>) )
 import           Data.Maybe                     ( fromMaybe )
 import           Control.Arrow                  ( (&&&) )
 
@@ -34,9 +34,9 @@ data EvaluationFlag = UseNormalOrder
 
 -- | A command issued to the interpreter
 data Command = Quit -- ^ Quit interpreter
-             | Load String -- ^ Load commands from file
-             | Define String (Expr String) -- ^ Define a free variable
-             | Evaluate [EvaluationFlag] (Expr String) -- ^ Evaluate an expression
+             | Load Text -- ^ Load commands from file
+             | Define Text (Expr Text) -- ^ Define a free variable
+             | Evaluate [EvaluationFlag] (Expr Text) -- ^ Evaluate an expression
              | SetIterationLimit !Int -- ^ Chane the iteration limit
 
 evalRequested :: [EvaluationFlag] -> Bool
@@ -51,7 +51,7 @@ normalOrderRequested = uncurry (&&) . (elem UseNormalOrder &&& evalRequested)
 nameRequested :: [EvaluationFlag] -> Bool
 nameRequested = uncurry (&&) . (elem NameResult &&& evalRequested)
 
-flagsParser :: Parsec String () [EvaluationFlag]
+flagsParser :: Parsec Text () [EvaluationFlag]
 flagsParser = char '!' *> many1 singleFlag <* char ' '
   where
     singleFlag =
@@ -60,22 +60,22 @@ flagsParser = char '!' *> many1 singleFlag <* char ' '
             <|> (char 'p' $> DoNotEvaluate)
             <|> (char 'l' $> NameResult)
 
-defParser :: Parsec String () Command
+defParser :: Parsec Text () Command
 defParser = name >>= (\n -> Define n <$> parser)
 
-loadParser :: Parsec String () Command
-loadParser = Load <$> many1 anyChar
+loadParser :: Parsec Text () Command
+loadParser = Load . pack <$> many1 anyChar
 
-evalParser :: Parsec String () Command
+evalParser :: Parsec Text () Command
 evalParser = do
     flags <- optionMaybe flagsParser
     Evaluate (fromMaybe [UseNormalOrder] flags) <$> parser
 
-settingParser :: Parsec String () Command
-settingParser = SetIterationLimit . read <$> (string "maxiter " *> many1 digit)
+settingParser :: Parsec Text () Command
+settingParser = SetIterationLimit <$> (string "maxiter " *> nat)
 
 -- | Parses commands. Commands either start with a colon or contain an expression to interprete.
-commandParser :: Parsec String () Command
+commandParser :: Parsec Text () Command
 commandParser =
     (  char ':'
         *> (   (char 'q' $> Quit)

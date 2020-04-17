@@ -1,10 +1,14 @@
 module ULC.Parser
     ( name
     , parser
+    , nat
     , PExpr
     )
 where
 
+import Protolude hiding (many,list)
+import Data.Text (pack, cons)
+import Control.Monad.Fail (fail)
 import           ULC                            ( Expr(App, Free)
                                                 , freeName
                                                 , mkLam
@@ -12,9 +16,7 @@ import           ULC                            ( Expr(App, Free)
 import           ULC.Church                     ( churchList
                                                 , churchNumeral
                                                 )
-import           Data.Functor                   ( ($>) )
-import           Text.Parsec                    ( (<|>)
-                                                , eof
+import           Text.Parsec                    ( eof
                                                 , spaces
                                                 , char
                                                 , letter
@@ -26,25 +28,27 @@ import           Text.Parsec                    ( (<|>)
                                                 , sepBy
                                                 , Parsec
                                                 )
-type P a = Parsec String () a
-type PExpr = P (Expr String)
+type P a = Parsec Text () a
+type PExpr = P (Expr Text)
 
-name :: P String
-name = (:) <$> letter <*> many alphaNum
+name :: P Text
+name = cons <$> letter <*> (pack <$> many alphaNum)
 
-appl :: P (Expr String -> Expr String -> Expr String)
+appl :: P (Expr Text -> Expr Text -> Expr Text)
 appl = spaces $> App
 
 nat :: P Int
-nat = read <$> many1 digit
+nat = many1 digit >>= (\cs -> case readEither cs of 
+                                Left exn -> fail exn
+                                Right n -> pure n) 
 
-list :: P [Expr String]
+list :: P [Expr Text]
 list = char '[' *> sepBy token (char ',') <* char ']'
 
 free, cList, cNat, abst, paren, token, term :: PExpr
 free = Free <$> name
 cNat = churchNumeral "s" "z" <$> nat
-cList = churchList "c" "n" (\n -> head . freeName n) <$> list
+cList = churchList "c" "n" (\n -> headDef "??" . freeName n) <$> list
 abst = mkLam <$> (char '\\' *> name <* char '.') <*> term
 paren = char '(' *> term <* char ')'
 token = spaces *> (free <|> cNat <|> abst <|> cList <|> paren) <* spaces

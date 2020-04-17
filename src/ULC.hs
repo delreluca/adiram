@@ -14,6 +14,9 @@ module ULC
   )
 where
 
+import           Protolude               hiding ( shift
+                                                , reduce
+                                                )
 import qualified Data.Map                      as M
 
 
@@ -59,25 +62,25 @@ names (a   `App` b            ) = names a ++ names b
 names (Lam _     (ExprScope a)) = names a
 
 -- | Finds a name that is not used by a free variable yet.
-freeName :: String -> [String] -> [String]
+freeName :: Text -> [Text] -> [Text]
 freeName n ns | n `notElem` ns = n : ns
-freeName n ns                  = freeName (n ++ "'") ns
+freeName n ns                  = freeName (n <> "'") ns
 
 -- | Prints an expression in the untyped lambda calculus. Collisions in bound variables are resolved by apostrophe suffixes.
 -- Tries to reduce the number of parantheses by only using them to preserve application order and preventing suffxing to abstractions.
-prettyPrint :: Expr String -> String
+prettyPrint :: Expr Text -> Text
 prettyPrint = go []
  where
   go _  (Free  a) = a
-  go ns (Bound i) = ns !! i
-  go ns (App l r) = lhs ns l ++ " " ++ rhs ns r
+  go ns (Bound i) = fromMaybe "??" (ns `atMay` i)
+  go ns (App l r) = lhs ns l <> " " <> rhs ns r
    where
-    lhs ns' x@(Lam _ _        ) = "(" ++ go ns' x ++ ")" -- it is not safe to append to an abstraction to the right
-    lhs ns' x@(App _ (Lam _ _)) = "(" ++ go ns' x ++ ")" -- same if it is the right hand side of an application
+    lhs ns' x@(Lam _ _        ) = "(" <> go ns' x <> ")" -- it is not safe to append to an abstraction to the right
+    lhs ns' x@(App _ (Lam _ _)) = "(" <> go ns' x <> ")" -- same if it is the right hand side of an application
     lhs ns' x                   = go ns' x
-    rhs ns' x@(App _ _) = "(" ++ go ns' x ++ ")" -- appending an application without parentheses will change order
+    rhs ns' x@(App _ _) = "(" <> go ns' x <> ")" -- appending an application without parentheses will change order
     rhs ns' x           = go ns' x
-  go ns (Lam n (ExprScope t)) = "λ" ++ head ns' ++ "." ++ go ns' t
+  go ns (Lam n (ExprScope t)) = "λ" <> headDef "??" ns' <> "." <> go ns' t
     where ns' = freeName n ns
 
 -- | Shifting of indices with cutoffs to protect bound variables in current scope
@@ -142,8 +145,8 @@ reduce1Normal _ _        = Nothing
 -- | Reduces an expression step by step as long as an evaluation step is possible.
 reduce
   :: (Environment a -> Expr a -> Maybe (Expr a))
-  -> Environment a
-  -> Expr a
+  -> Environment a -- ^ The environment containing free variables and iteration limits
+  -> Expr a -- ^ The original expression
   -> Expr a
 reduce t g = go $ iterationLimit g
  where

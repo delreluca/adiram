@@ -1,6 +1,15 @@
 module Main where
 
+import           Protolude               hiding ( empty )
 import           ULC
+import           Data.Text                      ( lines
+                                                , pack
+                                                , unpack
+                                                )
+import           Data.Text.IO                   ( readFile )
+import           Data.Text.Lazy                 ( toStrict )
+import           Data.Text.Lazy.Builder         ( toLazyText )
+import           Data.Text.Lazy.Builder.Int     ( decimal )
 import           Interpreter                    ( Command(..)
                                                 , EvaluationFlag(..)
                                                 , commandParser
@@ -12,7 +21,6 @@ import           Control.Monad                  ( void
                                                 , foldM
                                                 )
 import           Control.Monad.IO.Class         ( liftIO )
-import           Data.Functor                   ( ($>) )
 import           Data.Map                       ( empty
                                                 , keys
                                                 , insert
@@ -20,30 +28,24 @@ import           Data.Map                       ( empty
 import qualified Data.Map                      as M
                                                 ( filter )
 import qualified System.Console.Haskeline      as H
-import           System.IO                      ( hClose
-                                                , hGetContents
-                                                , openFile
-                                                , IOMode(ReadMode)
-                                                )
 import           Text.Parsec                    ( parse )
 
 
 repl :: Baton -> H.InputT IO Baton
 repl b = do
-        input <- H.getInputLine "λ "
+        input <- pack <<$>> H.getInputLine "λ "
         b'    <- maybe (pure Stop) (execCommand "$repl" b) input
         case b' of
-                Stop -> H.outputStrLn "Goodbye" $> b
+                Stop -> putText "Goodbye" $> b
                 _    -> repl b'
 
-data Baton = Stop | Cont (Environment String)
+data Baton = Stop | Cont (Environment Text)
 
-execCommand :: String -> Baton -> String -> H.InputT IO Baton
+execCommand :: Text -> Baton -> Text -> H.InputT IO Baton
 execCommand _ Stop     _   = pure Stop
-execCommand f (Cont g) cmd = case parse commandParser f cmd of
-        Left x ->
-                H.outputStrLn ("Error parsing. Use :q to quit.\n\n" ++ show x)
-                        $> Cont g
+execCommand f (Cont g) cmd = case parse commandParser (unpack f) cmd of
+        Left x -> putText ("Error parsing. Use :q to quit.\n\n" <> show x)
+                $> Cont g
         Right Quit -> pure Stop
         Right (Define n e) ->
                 pure
@@ -54,10 +56,13 @@ execCommand f (Cont g) cmd = case parse commandParser f cmd of
         Right (Load f'      ) -> loadFile (Cont g) f'
         Right (Evaluate fs e) -> liftIO (tellBack g fs e) $> Cont g
         Right (SetIterationLimit lim) ->
-                H.outputStrLn ("Iteration limit is now " ++ show lim)
+                putText
+                                (  "Iteration limit is now "
+                                <> toStrict (toLazyText $ decimal lim)
+                                )
                         $> Cont (Environment (freeVars g) lim)
 
-findName :: Environment String -> Expr String -> Maybe String
+findName :: Environment Text -> Expr Text -> Maybe Text
 findName g x = firstOrNot $ keys $ M.filter (x ~=) (freeVars g)
     where
         (~=) a b = normalise a == normalise b
@@ -65,37 +70,28 @@ findName g x = firstOrNot $ keys $ M.filter (x ~=) (freeVars g)
         firstOrNot (a : _) = Just a
         firstOrNot _       = Nothing
 
-tellBack :: Environment String -> [EvaluationFlag] -> Expr String -> IO ()
-tellBack g fs e = putStrLn $ prettyPrint e ++ cbv fs ++ no fs ++ nam fs
+tellBack :: Environment Text -> [EvaluationFlag] -> Expr Text -> IO ()
+tellBack g fs e = putText $ prettyPrint e <> cbv fs <> no fs <> nam fs
     where
         cbv fs' | cbvRequested fs' =
-                "\nCall-by-value yields: " ++ prettyPrint (reduceCbv g e)
+                "\nCall-by-value yields: " <> prettyPrint (reduceCbv g e)
         cbv _ = ""
         no fs' | normalOrderRequested fs' =
-                "\nNormal order yields:  " ++ prettyPrint (reduceNormal g e)
+                "\nNormal order yields:  " <> prettyPrint (reduceNormal g e)
         no _ = ""
         nam fs' | nameRequested fs' = maybe
                 "\nThis does not match any known variable"
-                ("\nThis is equivalent to " ++)
+                ("\nThis is equivalent to " <>)
                 (findName g e)
         nam _ = ""
 
--- TODO: consider using Text or ByteString for strict IO.
+fileLines :: Text -> IO [Text]
+fileLines path = lines <$> readFile (unpack path)
 
-strictify :: IO String -> IO String
-strictify m = m >>= (\s -> length s `seq` return s)
-
-fileLines :: String -> IO [String]
-fileLines path = do
-        handle <- openFile path ReadMode
-        s      <- lines <$> strictify (hGetContents handle)
-        hClose handle
-        pure s
-
-loadFile :: Baton -> String -> H.InputT IO Baton
+loadFile :: Baton -> Text -> H.InputT IO Baton
 loadFile g path = liftIO (fileLines path) >>= foldM (execCommand path) g
 
 main :: IO ()
-main = putStrLn "Welcome to adiram"
+main = putText "Welcome to adiram"
         >> void (H.runInputT H.defaultSettings $ repl startEnv)
         where startEnv = Cont $ Environment empty 10000

@@ -1,8 +1,12 @@
+import           Protolude               hiding ( replicate )
 import           Test.Tasty
 import           Test.Tasty.HUnit
 import           ULC
 import           ULC.Parser
 import qualified Text.Parsec                   as P
+import           Data.Text                      ( replicate
+                                                , unpack
+                                                )
 
 main :: IO ()
 main = defaultMain tests
@@ -19,13 +23,13 @@ tests = testGroup
         ]
 
 -- | Adds combinations of whitespace in front and or after a string.
-padCombinations :: Int -> String -> [String]
+padCombinations :: Int -> Text -> [Text]
 padCombinations n s =
-        let spaces = [ replicate i ' ' | i <- [0 .. n] ]
+        let spaces = [ replicate i " " | i <- [0 .. n] ]
         in  do
                     left  <- spaces
                     right <- spaces
-                    return $ left ++ s ++ right
+                    return $ left <> s <> right
 
 ulcId :: TestTree
 ulcId = ulcParsing (padCombinations 2 "\\x.x") (mkLam "x" $ Free "x")
@@ -34,8 +38,8 @@ ulcChurchZero :: TestTree
 ulcChurchZero =
         let combos = do
                     z  <- padCombinations 2 "z"
-                    zz <- padCombinations 1 $ "\\z." ++ z
-                    padCombinations 2 $ "\\s." ++ zz
+                    zz <- padCombinations 1 $ "\\z." <> z
+                    padCombinations 2 $ "\\s." <> zz
         in  ulcParsing combos c0
 
 ulcChurchOne :: TestTree
@@ -43,13 +47,13 @@ ulcChurchOne =
         let combos = do
                     s  <- padCombinations 1 "s"
                     z  <- padCombinations 1 " z"
-                    sz <- padCombinations 1 $ s ++ z
-                    zz <- padCombinations 1 $ "\\z." ++ sz
-                    padCombinations 1 $ "\\s." ++ zz
+                    sz <- padCombinations 1 $ s <> z
+                    zz <- padCombinations 1 $ "\\z." <> sz
+                    padCombinations 1 $ "\\s." <> zz
         in  ulcParsing combos c1
 
 -- Church numeral expressions
-c0, c1, cScc :: Expr String
+c0, c1, cScc :: Expr Text
 c0 = mkLam "s" $ mkLam "z" $ Free "z"
 c1 = mkLam "s" $ mkLam "z" $ Free "s" `App` Free "z"
 cScc =
@@ -59,7 +63,7 @@ cScc =
                 $     Free "s"
                 `App` ((Free "c" `App` Free "s") `App` Free "z")
 --Church list expressions
-cNil, cNameClash :: Expr String
+cNil, cNameClash :: Expr Text
 cNil = mkLam "c" $ mkLam "n" $ Free "n"
 cNameClash =
         mkLam "c'"
@@ -68,10 +72,10 @@ cNameClash =
                 `App` Free "c"
                 `App` (Free "c'" `App` Free "n" `App` Free "n'")
 
-cSingleList :: Expr String -> Expr String
+cSingleList :: Expr Text -> Expr Text
 cSingleList e = mkLam "c" $ mkLam "n" $ Free "c" `App` e `App` Free "n"
 
-cDoubleList :: Expr String -> Expr String -> Expr String
+cDoubleList :: Expr Text -> Expr Text -> Expr Text
 cDoubleList e1 e2 =
         mkLam "c"
                 $     mkLam "n"
@@ -96,18 +100,18 @@ ulcChurchSugar = testGroup
         ]
 
 -- | Test cases for the untyped lambda calculus parser.
-ulcParsing :: [String] -> Expr String -> TestTree
+ulcParsing :: [Text] -> Expr Text -> TestTree
 ulcParsing ss expr = testGroup
-        ("Expecting to parse " ++ prettyPrint expr)
+        (unpack $ "Expecting to parse " <> prettyPrint expr)
         (   (\s ->
-                    testCase ("Input >" ++ s ++ "<")
+                    testCase (unpack ("Input >" <> s <> "<"))
                             $ let
                                       res = case P.parse parser "" s of
                                               Right a -> a
                                               Left e ->
-                                                      error
+                                                      panic
                                                               $ "Parsec error: "
-                                                              ++ show e
+                                                              <> show e
                               in  res @?= expr
             )
         <$> ss
