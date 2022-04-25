@@ -1,0 +1,14 @@
+on: [push]
+name: ci
+jobs:
+  test:
+    name: stack test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: haskell/actions/setup@v2
+        with:
+          ghc-version: '8.6.5' # Stackage LTS Haskell 14.20
+          enable-stack: true
+          stack-version: 'latest'
+      - run: stack --no-terminal test --haddock --no-haddock-deps --ghc-options="-Werror"
