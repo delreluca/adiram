@@ -30,6 +30,7 @@ data EvaluationFlag = UseNormalOrder
                     | UseCallByValue
                     | DoNotEvaluate
                     | NameResult
+                    | PrintNumeral
                     deriving Eq
 
 -- | A command issued to the interpreter
@@ -59,6 +60,7 @@ flagsParser = char '!' *> many1 singleFlag <* char ' '
             <|> (char 'v' $> UseCallByValue)
             <|> (char 'p' $> DoNotEvaluate)
             <|> (char 'l' $> NameResult)
+            <|> (char 'z' $> PrintNumeral)
 
 defParser :: Parsec Text () Command
 defParser = name >>= (\n -> Define n <$> parser)

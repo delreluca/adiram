@@ -29,6 +29,7 @@ import qualified Data.Map                      as M
                                                 ( filter )
 import qualified System.Console.Haskeline      as H
 import           Text.Parsec                    ( parse )
+import ULC.Church (foldChurchNumeral)
 
 
 repl :: Baton -> H.InputT IO Baton
@@ -74,16 +75,20 @@ tellBack :: Environment Text -> [EvaluationFlag] -> Expr Text -> IO ()
 tellBack g fs e = putText $ prettyPrint e <> cbv fs <> no fs <> nam fs
     where
         cbv fs' | cbvRequested fs' =
-                "\nCall-by-value yields: " <> prettyPrint (reduceCbv g e)
+                "\nCall-by-value yields: " <> prettyPrint result <> num fs' result
+                where result = reduceCbv g e
         cbv _ = ""
         no fs' | normalOrderRequested fs' =
-                "\nNormal order yields:  " <> prettyPrint (reduceNormal g e)
+                "\nNormal order yields:  " <> prettyPrint result <> num fs' result
+                where result = reduceNormal g e
         no _ = ""
         nam fs' | nameRequested fs' = maybe
                 "\nThis does not match any known variable"
                 ("\nThis is equivalent to " <>)
                 (findName g e)
         nam _ = ""
+        num fs' r | PrintNumeral `elem` fs' = "\n Church numeral: " <> pack (maybe "This does not appear to be a Church encoded numeral" show (foldChurchNumeral (0::Integer) succ r))
+        num _ _ = ""
 
 fileLines :: Text -> IO [Text]
 fileLines path = lines <$> readFile (unpack path)

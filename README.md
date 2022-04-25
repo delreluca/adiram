@@ -48,7 +48,7 @@ You can prefix the expression by `!`, followed by flags, to control the evaluati
 
 With references to free variables (see below) it is possible to generate infinite regressions. To break them a default iteration limit of 10000 is in place. To change the limit use the command `:set maxiter 〈new-limit〉`.
 
-### Syntactic sugar
+### Church encoding: Syntactic sugar and helpers
 
 There is syntactic sugar for numerals and lists, you can just type the natural number in decimal digits and it will be resolved to its Church encoding, using `s` for _succ_ and `z` for 0. The following expression is equivalent to the previous run:
 
@@ -57,6 +57,15 @@ There is syntactic sugar for numerals and lists, you can just type the natural n
 \s.\z.s z
 Call-by-value yields: λs.λz.s z
 Normal order yields:  λs.λz.s z
+```
+
+You can also print the numeric value of a Church encoded result. To activate this feature use the flag `z`, for example
+
+```console
+λ !zn \s.\z.s (s z)
+λs.λz.s (s z)
+Normal order yields:  λs.λz.s (s z)
+ Church numeral: 2
 ```
 
 For lists embrace the list in square brackets and separated its members by commas. The list will be desugared into its Church encoding using `c` as the _cons_ binder and `n` for _nil._ Should names clash they will be suffixed by apostrophes. For example:
