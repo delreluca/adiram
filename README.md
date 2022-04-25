@@ -1,6 +1,5 @@
 # adiram
-
-[![Build Status](https://travis-ci.org/delreluca/adiram.svg?branch=master)](https://travis-ci.org/delreluca/adiram)
+[![Build Status](https://github.com/delreluca/adiram/actions/workflows/ci.yml/badge.svg)](https://github.com/delreluca/adiram/actions/workflows/ci.yml)
 
 A small lambda calculus interpreter in Haskell.
 
