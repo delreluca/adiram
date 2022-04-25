@@ -1,34 +1,39 @@
 module ULC.Parser
-    ( name
-    , parser
-    , nat
-    , PExpr
-    )
+  ( name,
+    parser,
+    nat,
+    PExpr,
+  )
 where
 
-import Protolude hiding (many,list)
-import Data.Text (pack, cons)
 import Control.Monad.Fail (fail)
-import           ULC                            ( Expr(App, Free)
-                                                , freeName
-                                                , mkLam
-                                                )
-import           ULC.Church                     ( churchList
-                                                , churchNumeral
-                                                )
-import           Text.Parsec                    ( eof
-                                                , spaces
-                                                , char
-                                                , letter
-                                                , alphaNum
-                                                , digit
-                                                , many
-                                                , many1
-                                                , chainl1
-                                                , sepBy
-                                                , Parsec
-                                                )
+import Data.Text (cons, pack)
+import Protolude hiding (list, many)
+import Text.Parsec
+  ( Parsec,
+    alphaNum,
+    chainl1,
+    char,
+    digit,
+    eof,
+    letter,
+    many,
+    many1,
+    sepBy,
+    spaces,
+  )
+import ULC
+  ( Expr (App, Free),
+    freeName,
+    mkLam,
+  )
+import ULC.Church
+  ( churchList,
+    churchNumeral,
+  )
+
 type P a = Parsec Text () a
+
 type PExpr = P (Expr Text)
 
 name :: P Text
@@ -38,9 +43,12 @@ appl :: P (Expr Text -> Expr Text -> Expr Text)
 appl = spaces $> App
 
 nat :: P Int
-nat = many1 digit >>= (\cs -> case readEither cs of 
-                                Left exn -> fail exn
-                                Right n -> pure n) 
+nat =
+  many1 digit
+    >>= ( \cs -> case readEither cs of
+            Left exn -> fail exn
+            Right n -> pure n
+        )
 
 list :: P [Expr Text]
 list = char '[' *> sepBy token (char ',') <* char ']'
