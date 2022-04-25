@@ -6,11 +6,13 @@ module ULC
   , iterationLimit
   , freeName
   , mkLam
+  , reifyLam
   , names
   , prettyPrint
   , reduceCbv
   , reduceNormal
   , stripNames
+  , mapNames
   )
 where
 
@@ -39,6 +41,14 @@ stripNames a (Lam _ (ExprScope i)) = Lam a (ExprScope (stripNames a i))
 stripNames a (App x y            ) = stripNames a x `App` stripNames a y
 stripNames _ x                     = x
 
+-- | Maps names of free variables and preferred names of bound variables.
+-- This is useful to enlargen the type of the names.
+mapNames :: (a -> b) -> Expr a -> Expr b
+mapNames f (Lam a (ExprScope i)) = Lam (f a) (ExprScope (mapNames f i))
+mapNames f (App x y) = mapNames f x `App` mapNames f y
+mapNames f (Free a) = Free $ f a
+mapNames _ (Bound i) = Bound i
+
 -- | Takes an expression and turns it into a scope by binding a given free variable.
 abstract :: Eq a => a -> Expr a -> ExprScope a
 abstract nameToBind e = ExprScope $ go 0 e
@@ -53,6 +63,13 @@ abstract nameToBind e = ExprScope $ go 0 e
 -- | Returns a lambda abstraction by binding a given free variable and using it as preferred name
 mkLam :: Eq a => a -> Expr a -> Expr a
 mkLam a = Lam a . abstract a
+
+-- | Undoes a lambda abstraction by substituting the bound variable. The result is guaranteed to not be an abstraction.
+reifyLam :: Expr a -- ^ The expression to reify
+  -> Expr a -- ^ The substitute for the bound variable
+  -> Expr a -- ^ The reified expression or, in case it was not a lambda abstraction, the original expression
+reifyLam (Lam _ (ExprScope inner)) by = substAppAbs by inner
+reifyLam e _ = e
 
 -- | Returns the free (unbound) variables in an expression. The result might contain duplicates.
 names :: Expr a -> [a]

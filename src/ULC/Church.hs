@@ -1,9 +1,9 @@
-module ULC.Church where
+module ULC.Church (churchNumeral, foldChurchNumeral, churchList) where
 
 import           Protolude
 import           ULC                            ( mkLam
                                                 , names
-                                                , Expr(Free, App)
+                                                , Expr(Free, App, Lam), reifyLam, mapNames
                                                 )
 
 -- | Creates a Church encoded numeral from a Haskell integral.
@@ -12,6 +12,24 @@ churchNumeral s z = mkLam s . mkLam z . go
  where
   go n | n <= 0 = Free z
   go n          = Free s `App` go (pred n)
+
+data FoldChurchNumeralNames a = Succ | Zero | Original a
+
+-- | Applies a function on an initial element according to a Church encoded numeral
+foldChurchNumeral
+  :: n -- The initial element
+  -> (n -> n) -- The successor function
+  -> Expr a -- The expression containing a Church encoded numeral
+  -> Maybe n -- The iterated successor application on the initial element (if the expression contained a Church encoded numeral)
+foldChurchNumeral z s e = do
+  noS <- unpack (mapNames Original e) Succ
+  noZ <- unpack noS Zero
+  agg noZ
+  where unpack l@(Lam _ _) a = Just $ reifyLam l (Free a)
+        unpack _ _ = Nothing
+        agg (App (Free Succ) d) = s <$> agg d
+        agg (Free Zero) = Just z
+        agg _ = Nothing
 
 -- | Creates a Church encoded list from a Haskell foldable.
 churchList

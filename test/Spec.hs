@@ -3,6 +3,7 @@ import           Test.Tasty
 import           Test.Tasty.HUnit
 import           ULC
 import           ULC.Parser
+import           ULC.Church (foldChurchNumeral)
 import qualified Text.Parsec                   as P
 import           Data.Text                      ( replicate
                                                 , unpack
@@ -20,6 +21,7 @@ tests = testGroup
         , ulcComplex
         , ulcPrettyPrint
         , ulcChurchSugar
+        , ulcChurchNumeralToInteger
         ]
 
 -- | Adds combinations of whitespace in front and or after a string.
@@ -53,9 +55,10 @@ ulcChurchOne =
         in  ulcParsing combos c1
 
 -- Church numeral expressions
-c0, c1, cScc :: Expr Text
+c0, c1, c3, cScc :: Expr Text
 c0 = mkLam "s" $ mkLam "z" $ Free "z"
 c1 = mkLam "s" $ mkLam "z" $ Free "s" `App` Free "z"
+c3 = mkLam "s" $ mkLam "z" $ Free "s" `App` (Free "s" `App` (Free "s" `App` Free "z"))
 cScc =
         mkLam "c"
                 $     mkLam "s"
@@ -98,6 +101,16 @@ ulcChurchSugar = testGroup
         , ulcParsing ["[a,1]"] $ cDoubleList (Free "a") c1
         , ulcParsing ["[c,n]"] cNameClash
         ]
+
+ulcChurchNumeralToInteger :: TestTree
+ulcChurchNumeralToInteger = testGroup
+        "Folding over a Church numeral to get a Haskell integer"
+        [ checkInteger 0 c0
+        , checkInteger 1 c1
+        , checkInteger 3 c3
+        , testCase "scc should not evaluate" (foldChurchNumeral (0::Integer) succ cScc @?= Nothing)
+        ]
+        where checkInteger n c = testCase ("Evaluating Church numeral " ++ show n) (foldChurchNumeral (0::Integer) succ c @?= Just n)
 
 -- | Test cases for the untyped lambda calculus parser.
 ulcParsing :: [Text] -> Expr Text -> TestTree
